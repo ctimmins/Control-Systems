@@ -1,0 +1,83 @@
+%-----------------------------------------------------------------
+%----------Performance Requirements-------------------------------
+%-----------------------------------------------------------------
+%steady state error
+ess = .005;
+%desired pm's
+desired_PM = 30;
+required_PM = 55;
+%-----------------------------------------------------------------
+%----------Define System------------------------------------------
+%-----------------------------------------------------------------
+s = tf('s');
+syms w tau;
+Kc1_a1 = 20;
+%Plant
+P = 10/(s*(.1*s+1)*(.01*s+1));
+[gm pm wp wg] = margin(Kc1_a1*P);
+magP = 10/(w*sqrt(((.1*w).^2+1)*((.01*w).^2+1)));
+%w_range = linspace(40,80,10000);
+%[mag phase] = bode(Kc_a*P,w_range);
+
+%required phase shift
+ps = required_PM - pm;
+
+%compensate for right shifted wg
+ps = ps + 20;
+a = (1+sind(ps))/(1-sind(ps));
+
+%find new wg
+wg_new = double(solve(Kc1_a1*magP == (1/sqrt(a)),w));
+wg_new = max(wg_new(find(wg_new == real(wg_new))));
+
+%find tau
+tau = 1/(wg_new*sqrt(a));
+
+%lead controller
+C2 = Kc1_a1*(tau*a*s+1)/(tau*s+1);
+
+%open loop tf
+G1 = series(C2,P);
+
+[nG1 dG1] = tfdata(G1);
+nG1 = poly2sym(cell2mat(nG1));
+dG1 = poly2sym(cell2mat(dG1));
+nG1 = subs(nG1,i*w);
+dG1 = subs(dG1,i*w);
+nG1abs = abs(nG1);
+dG1abs = abs(dG1);
+
+
+magG1 = Kc1_a1*10*sqrt((.1401*w).^2+1)/...
+                       (w*sqrt(((.1*w).^2+1)*((.01*w).^2+1)*((.000305*w).^2+1)));
+Kc2_a2 = 1;
+[gm pm wp wg] = margin(Kc2_a2*G1);
+
+ps2 = required_PM - pm;
+ps2 = ps2+18.7;
+a2 = (1+sind(ps2))/(1-sind(ps2));
+wg2_new = double(solve(Kc2_a2*magG1 == (1/sqrt(a2)),w));
+wg2_new = max(wg2_new(find(wg2_new == real(wg2_new))));
+%wg2_new = 125.99;
+tau2 = 1/(wg2_new*sqrt(a2));
+
+C3 = Kc2_a2*(tau2*a2*s+1)/(tau2*s+1);
+
+G = series(G1,C3);
+
+[gm pm wp wg] = margin(G)
+
+HLL = feedback(G,1,-1);
+
+HLL = feedback(G,1,-1);
+[y t] = step(HLL,256);
+S = stepinfo(y,t)
+ess = abs(1 - y(end))*100
+
+subplot(2,1,1)
+bode(G)
+subplot(2,1,2)
+step(HLL)
+
+mpw = getPeakGain(HLL)
+
