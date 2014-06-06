@@ -1,0 +1,27 @@
+%-----------------------------------------------------------------
+%----------Define System------------------------------------------
+%-----------------------------------------------------------------
+s = tf('s');
+P = 10/(s*(.1*s+1)*(.01*s+1));
+
+%lead
+C2 = 20*(.1401*s+1)/(.000305*s+1);
+G2 = series(P,C2);
+%lead-lead
+C3 = (.0093*s+1)/(.0018*s+1);
+G3 = series(G2,C3);
+%lead-lag
+C4 = (.1686*s+1)/(.6804*s+1);
+G4 = series(G2,C4);
+%Prefilter
+F = (s+6.85)/(6.85*(.0093*s+1)*(.1401*s+1));
+
+H_ld = feedback(G2,1,-1);
+H_ld_ld = feedback(G3,1,-1);
+H_ld_lg = feedback(G4,1,-1);
+H_pre = G3*F/(1+G3);
+
+%Step responses
+%bode(G2,'r',G3,'g',G4,'b',G3,'k');
+bode(H_ld,'r',H_ld_ld,'g',H_ld_lg,'b',H_pre,'k');
+legend('Lead','Lead-Lead','Lead-Lag','w/Prefilter','Location','Best')
