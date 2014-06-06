@@ -1,0 +1,54 @@
+%-----------------------------------------------------------------
+%----------Performance Requirements-------------------------------
+%-----------------------------------------------------------------
+%steady state error
+ess = .005;
+%desired pm's
+desired_PM = 30;
+required_PM = 55;
+%-----------------------------------------------------------------
+%----------Define System------------------------------------------
+%-----------------------------------------------------------------
+s = tf('s');
+syms w tau;
+Kc_a = 20;
+%Plant
+P = 10/(s*(.1*s+1)*(.01*s+1));
+[gm pm wp wg] = margin(Kc_a*P);
+magP = 10/(w*sqrt(((.1*w).^2+1)*((.01*w).^2+1)));
+%w_range = linspace(40,80,10000);
+%[mag phase] = bode(Kc_a*P,w_range);
+
+%required phase shift
+ps = required_PM - pm;
+
+%compensate for right shifted wg
+ps = ps + 20;
+a = (1+sind(ps))/(1-sind(ps));
+
+%find new wg
+wg_new = double(solve(Kc_a*magP == (1/sqrt(a)),w));
+wg_new = wg_new(find(wg_new == real(wg_new)));
+
+%find tau
+tau = 1/(wg_new*sqrt(a));
+%lead controller
+C_lead = Kc_a*(tau*a*s+1)/(tau*s+1);
+
+
+%open loop tf
+G = series(C_lead,P);
+rlocus(G)
+[gm pm wp wg] = margin(G)
+
+H_ld = feedback(G,1,-1);
+[y t] = step(H_ld,256);
+S = stepinfo(y,t)
+subplot(3,1,1)
+margin(P)
+subplot(3,1,2)
+bode(C_lead);
+subplot(3,1,3)
+margin(G)
+
+mpw = getPeakGain(feedback(G,1,-1))
