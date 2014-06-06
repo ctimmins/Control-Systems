@@ -1,0 +1,15 @@
+function [ po, tp, ess ] = PO_TP( H,time )
+%PO_TP given Closed loop TF, returns structure containing 
+%   
+
+[y t] = step(H,time);
+
+ymax = max(y);
+ind = find(y == ymax);
+tp = t(ind);
+po = 100*(ymax-y(end))/y(end);
+ess = abs((1-y(end))*100);
+
+
+
+end
