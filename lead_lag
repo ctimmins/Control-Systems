@@ -1,0 +1,70 @@
+
+%-----------------------------------------------------------------
+%----------Performance Requirements-------------------------------
+%-----------------------------------------------------------------
+%steady state error
+ess = .005;
+%desired pm's
+desired_PM = 30;
+required_PM = 55;
+%-----------------------------------------------------------------
+%----------Define System------------------------------------------
+%-----------------------------------------------------------------
+s = tf('s');
+%{
+syms w tau;
+Kc1_a1 = 20;
+%Plant
+P = 10/(s*(.1*s+1)*(.01*s+1));
+[gm pm wp wg] = margin(Kc1_a1*P);
+magP = 10/(w*sqrt(((.1*w).^2+1)*((.01*w).^2+1)));
+%w_range = linspace(40,80,10000);
+%[mag phase] = bode(Kc_a*P,w_range);
+
+%required phase shift
+ps = required_PM - pm;
+
+%compensate for right shifted wg
+ps = ps + 20;
+a = (1+sind(ps))/(1-sind(ps));
+
+%find new wg
+wg_new = double(solve(Kc1_a1*magP == (1/sqrt(a)),w));
+wg_new = max(wg_new(find(wg_new == real(wg_new))));
+
+%find tau
+tau = 1/(wg_new*sqrt(a));
+
+%lead controller
+C2 = Kc1_a1*(tau*a*s+1)/(tau*s+1);
+
+%open loop tf
+G1 = series(C2,P);
+%}
+P = 10/(s*(.1*s+1)*(.01*s+1));
+C2 = 20*(.1401*s+1)/(.000305*s+1);
+G1 = series(P,C2);
+%C4 = (.1686*s+1)/(.6804*s+1);
+wm = 59.309;
+[mag phase] = bode(G1,wm);
+a = 1/mag;
+tau = 10/(wm*a);
+C4 = (a*tau*s+1)/(tau*s+1);
+G = series(C4,G1);
+subplot(2,1,1)
+margin(G);
+H_ld_lg = feedback(G,1,-1);
+[y t] = step(H_ld_lg,256);
+S = stepinfo(y,t)
+subplot(2,1,2)
+step(H_ld_lg,256)
+axis([0 .5 0 1.2*S.Peak]);
+hold on;
+plot([0 S.PeakTime],[S.Peak S.Peak],'r--',...
+     [S.PeakTime S.PeakTime],[0 S.Peak],'r--',...
+     [y(1) y(end)],[1.025*y(end) 1.025*y(end)],'g--');
+hold off;
+
+ess = abs(1 - y(end))*100
+
+mpw = getPeakGain(H_ld_lg)
